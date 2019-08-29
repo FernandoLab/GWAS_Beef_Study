@@ -1,0 +1,278 @@
+---
+title: "GWAS_Beef_Study"
+author: "Waseem"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+```
+
+# Figure 5 A & B Correlation Plots
+```{r, echo=FALSE}
+#setwd("working directory")
+## Creating Abundance table ####
+rarefied_OTUs= read.table("otu_table.tax_final_586Samples_1%_Filtered_Taxa.txt", sep ="\t", header=T)
+row.names(rarefied_OTUs)= rarefied_OTUs$OTUID
+rarefied_OTUs = rarefied_OTUs[, -1]
+taxonomy_OTUs= subset(rarefied_OTUs, select = taxonomy)
+rarefied_OTUs= rarefied_OTUs[, -587] # removing last column of Taxonomy
+
+OTUs_rel= sweep(rarefied_OTUs, 2, colSums(rarefied_OTUs), FUN= "/")
+OTUs_abundance_tax = merge(OTUs_rel, taxonomy_OTUs, by= "row.names")
+
+names(OTUs_abundance_tax)[1]= "OTUID"
+write.table(OTUs_abundance_tax, sep= "\t", file="OTUs_abundance_otu_table.tax_final_586Samples_1%_Filtered_Taxa.txt", col.names = T, row.names = F, quote=F)
+
+
+OTUs_abundance_Family= read.table("otu_table.tax_final_586Samples_1%_Filtered_Taxa_L5.txt", sep ="\t", header=T)
+OTUs_abundance_Phylu= read.table("otu_table.tax_final_586Samples_1%_Filtered_Taxa_L2.txt", sep ="\t", header=T)
+OTU_abundance= read.table("OTUs_abundance_otu_table.tax_final_586Samples_1%_Filtered_Taxa.txt", sep= "\t", header= T)
+row.names(OTU_abundance)= OTU_abundance$OTUID
+
+selected_phyla= OTUs_abundance_Phylu[apply(OTUs_abundance_Phylu,1,function(x){any(c("k__Bacteria;p__Firmicutes","k__Bacteria;p__Lentisphaerae","k__Bacteria;p__Proteobacteria","k__Bacteria;p__Verrucomicrobia","k__Bacteria;p__Fibrobacteres", "k__Bacteria;p__Tenericutes") %in% x)}),]
+selected_family= OTUs_abundance_Family[apply(OTUs_abundance_Family,1,function(x){any(c("k__Bacteria;p__Firmicutes;c__Clostridia;o__Clostridiales;f__Lachnospiraceae","k__Bacteria;p__Verrucomicrobia;c__Verruco-5;o__WCHB1-41;f__RFP12", "k__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Aeromonadales;f__Succinivibrionaceae","k__Bacteria;p__Firmicutes;c__Clostridia;o__Clostridiales;f__Veillonellaceae","k__Bacteria;p__Bacteroidetes;c__Bacteroidia;o__Bacteroidales;f__[Paraprevotellaceae]","k__Bacteria;p__Bacteroidetes;c__Bacteroidia;o__Bacteroidales;f__Prevotellaceae","k__Bacteria;p__Bacteroidetes;c__Bacteroidia;o__Bacteroidales;f__S24-7","k__Bacteria;p__Firmicutes;c__Clostridia;o__Clostridiales;f__Ruminococcaceae","k__Bacteria;p__Bacteroidetes;c__Bacteroidia;o__Bacteroidales;f__RF16","k__Bacteria;p__Fibrobacteres;c__Fibrobacteria;o__Fibrobacterales;f__Fibrobacteraceae", "k__Bacteria;p__Firmicutes;c__Clostridia;o__Clostridiales;f__Clostridiaceae","k__Bacteria;p__Bacteroidetes;c__Bacteroidia;o__Bacteroidales;f__BS11") %in% x)}),]
+selecting_OTUs= OTU_abundance[c("41","57","2337","21","43","27","30","53","4","12","2737","3","72","64","19","28"),]
+selecting_OTUs=selecting_OTUs[,-588]
+selecting_OTUs$OTUID= paste("OTU",selecting_OTUs$OTUID, sep = "")
+
+
+selected_phyla_And_family_OTUs= rbind(selected_phyla,selected_family,selecting_OTUs)
+
+write.table(selected_phyla_And_family_OTUs, sep= "\t", file="selected_phyla_And_family_OTUs.txt", col.names = T, row.names = F, quote=F)
+
+row.names(selected_phyla_And_family_OTUs)= selected_phyla_And_family_OTUs$OTUID
+selected_phyla_And_family_OTUs=selected_phyla_And_family_OTUs[,-1]
+selected_phyla_family_OTUs_transpose= data.frame(t(selected_phyla_And_family_OTUs))
+
+write.table(selected_phyla_family_OTUs_transpose, sep= "\t", file="selected_phyla_family_OTUs_transpose.txt", col.names = T, row.names = T, quote=F)
+
+colnames(selected_phyla_family_OTUs_transpose)= c("Fibrobacteres","Firmicutes","Lentisphaerae","Proteobacteria","Tenericutes","Verrucomicrobia","BS11","Prevotellaceae","RF16","S24-7","Paraprevotellaceae","Fibrobacteraceae","Clostridiaceae","Lachnospiraceae","Ruminococcaceae","Veillonellaceae","Succinivibrionaceae","RFP12","OTU41","OTU57","OTU2337","OTU21","OTU43","OTU27","OTU30","OTU53","OTU4","OTU12","OTU2737","OTU3","OTU72","OTU64","OTU19","OTU28")
+write.table(selected_phyla_family_OTUs_transpose, sep= "\t", file="Correlation_selected_phyla_family_OTUs_transpose.txt", col.names = T, row.names = T, quote=F)
+library(devtools)
+library(ggpubr)
+library(GGally)
+
+#Correlations of log(data+1)
+selected_phyla_family_OTUs_transpose_log_plus1= log10(1+selected_phyla_family_OTUs_transpose)
+
+selected_phyla_family_OTUs_transpose_log_plus1_chromosome9= subset(selected_phyla_family_OTUs_transpose_log_plus1, select= c("OTU4","OTU12","OTU53","Lachnospiraceae","RFP12","Succinivibrionaceae","Veillonellaceae","Clostridiaceae","Firmicutes","Lentisphaerae","Proteobacteria","Verrucomicrobia"))
+selected_phyla_family_OTUs_transpose_log_plus1_chromosome27= subset(selected_phyla_family_OTUs_transpose_log_plus1, select= c("OTU19","OTU28","OTU3","RF16","S24-7","Fibrobacteraceae","Clostridiaceae","Fibrobacteres","Lentisphaerae","Tenericutes"))
+ggpairs(selected_phyla_family_OTUs_transpose_log_plus1_chromosome9)
+ggpairs(selected_phyla_family_OTUs_transpose_log_plus1_chromosome27)
+
+```
+
+##Beta_Diversity Plot (Bray Curtis) [Location,Diet and Sex]
+
+```{r , echo=T}
+library(vegan)
+mappingfile= read.table("GWAS_586_mapping_573Samples_rarefied7000.txt", sep="\t", header=T)
+
+data= read.table("bray_curtis_pc.txt", skip= 9, nrows= 573, sep = "\t")
+dat_2PCs= data[,1:3]
+colnames(dat_2PCs)= c("SampleID","PC1","PC2")
+mapping_beta_div= mappingfile[, c("SampleID","Diet","Cohort", "Sex","Location")]
+
+PC_and_Mapping= merge.data.frame(dat_2PCs, mapping_beta_div)
+library(ggplot2)
+ggplot(PC_and_Mapping, aes(x = PC1, y = PC2, color = Sex)) +
+  geom_point() + xlab("PC1(28.9.3%)")+ ylab("PC2(10.5%)") + ggtitle("bray_curtis_pc")
+
+ggplot(PC_and_Mapping, aes(x = PC1, y = PC2, color = Location)) +
+  geom_point() + xlab("PC1(28.9.3%)")+ ylab("PC2(10.5%)") + ggtitle("bray_curtis_pc")
+
+ggplot(PC_and_Mapping, aes(x = PC1, y = PC2, color = Diet)) +
+  geom_point() + xlab("PC1(28.9.3%)")+ ylab("PC2(10.5%)") + ggtitle("bray_curtis_pc")
+
+```
+
+
+###Heatmap Families Abundance####
+
+```{r, echo=F}
+###Heatmap with complexheatmap#####
+library(ComplexHeatmap)
+library(stringr)
+family_proportions= read.table("otu_table.tax_final_586Samples_1%_Filtered_Taxa_L5.txt", sep ="\t", header=T)
+
+tax= as.data.frame(str_split_fixed(family_proportions$OTUID, ";", 5))
+names(tax) [5]= "family"
+tax$family= sub(" ","", tax$family)
+tax$family=sub("f__", "",tax$family)
+tax$family=sub("^$", "No_Assigned_Family",tax$family)
+tax$family=sub("\\]", "",tax$family)
+tax$family=sub("\\[", "",tax$family)
+
+f_p= merge(tax,family_proportions, by= "row.names")
+f_p= f_p[,-c(1,2,3,4,5,7)]
+f_p2= f_p[!(f_p$family=="Other" & f_p$family=="No Assigned Family"),]
+other= f_p[(f_p$family=="Other"),]
+other2= other[,-1]
+other2_average= data.frame(colMeans(other2))
+colnames(other2_average)= "Other"
+other2_average_t= data.frame(t(other2_average))
+
+No_Assigned_Family= f_p[(f_p$family=="No_Assigned_Family"),]
+No_Assigned_Family2 = No_Assigned_Family[,-1]
+No_Assigned_Family2_average= data.frame(colMeans(No_Assigned_Family2))
+colnames(No_Assigned_Family2_average)= "No_Assigned_Family"
+No_Assigned_Family2_average_t= data.frame(t(No_Assigned_Family2_average))
+
+remove= c("Other","No_Assigned_Family" )
+
+f_p2= f_p[!(f_p$family) %in% remove, ]
+rownames(f_p2)= f_p2$family
+f_p3= f_p2[,-1]
+f_p4= rbind(f_p3,No_Assigned_Family2_average_t,other2_average_t )
+
+f_p4= as.matrix(f_p4)
+f_p4_t= t(f_p4)
+
+heat_map_metadata= read.table("heat_map_families_input_metadata.txt", sep ="\t", header=T)
+
+f_p5= data.frame(t(f_p4))
+f_p5$SampleID= rownames(f_p5)
+f_p5= f_p5[order(f_p5$SampleID),]
+heat_map_metadata= read.table("heat_map_families_input_metadata.txt", sep ="\t", header=T)
+heat_map_metadata2= heat_map_metadata[order(heat_map_metadata$SampleID),]
+f_p6= merge(heat_map_metadata2,f_p5)
+f_p6.1= f_p6[order(f_p6$Cohort2),]
+
+rownames(f_p6.1)= f_p6.1$SampleID
+f_p6.1= f_p6.1[,-c(1:4)]
+f_p6.1_t= data.frame(t(f_p6.1))
+f_p6.1_t= as.matrix(f_p6.1_t)
+
+heat_map_metadata3= heat_map_metadata2[order(heat_map_metadata2$Cohort2),] 
+
+
+ann <- data.frame(heat_map_metadata3$Diet, heat_map_metadata3$Sex,heat_map_metadata3$Cohort2)
+colnames(ann)= c("Diet", "Sex","Cohort")
+colours <- list("Cohort"=c("UNL1"="red2","UNL2"="royalblue", "UNL3"="burlywood4", "UNL4"="yellow","UNL5"="Green","USMARC1"="darkblue","USMARC2"="lightcoral","USMARC3"="black"), "Sex"=c("Steer"="limegreen","Heifer"="gold"), "Diet"= c("Common"="red", "Finishing"= "black", "Growing"= "green"))
+colAnn <- HeatmapAnnotation(df= ann , which="col", col=colours, annotation_width=unit(c(1, 4), "cm"), gap=unit(1, "mm"))
+R.AN= rowAnnotation(foo = anno_mark(at = c(11,93,64,16,139,131,135,155,14,132,105,162,163, 127,8,21,83), labels = row.names(f_p6.1_t[c(11,93,64,16,139,131,135,155,14,132,105,162,163, 127,8,21,83),])))
+
+Heatmap(f_p6.1_t, name = "Retative Abundance", cluster_rows = F,cluster_columns = F,show_column_dend = T,show_row_dend = T, 
+        row_dend_reorder = T, column_dend_reorder = T,top_annotation=colAnn,
+        right_annotation = R.AN, show_row_names = F, show_column_names = F)
+
+```
+
+
+#Heat map as a supplimentry Figure
+This heatmap shows the correlations between all the identified OTUs, Families and Phyla
+
+```{r , echo=FALSE}
+
+selected_phyla_family_OTUs_transpose =read.table("selected_phyla_family_OTUs_transpose.txt", sep="\t", header=T)
+colnames(selected_phyla_family_OTUs_transpose)= c("Fibrobacteres","Firmicutes","Lentisphaerae","Proteobacteria","Tenericutes","Verrucomicrobia","BS11","Prevotellaceae","RF16","S24-7","Paraprevotellaceae","Fibrobacteraceae","Clostridiaceae","Lachnospiraceae","Ruminococcaceae","Veillonellaceae","Succinivibrionaceae","RFP12","OTU41[Methanobacteriaceae]","OTU57[Bacteroidetes]","OTU2337[Veillonellaceae]","OTU21[Prevotellaceae]","OTU43[RFP12]","OTU27[Paraprevotellaceae]","OTU30[Prevotellaceae]","OTU53[Ruminococcaceae]","OTU4[Prevotellaceae]","OTU12[Prevotellaceae]","OTU2737[Prevotellaceae]","OTU3[RF16]","OTU72[Paraprevotellaceae]","OTU64[F16]","OTU19[Prevotellaceae]","OTU28[Fibrobacteraceae]")
+selected_phyla_family_OTUs_transpose_log_plus1= log10(1+selected_phyla_family_OTUs_transpose)
+library("ggplot2")
+library("scales")
+library("grid")
+
+cormat= round(cor(selected_phyla_family_OTUs_transpose_log_plus1),2)
+library(reshape2)
+melted_cormat <- melt(cormat)
+head(melted_cormat)
+
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+upper_tri <- get_upper_tri(cormat)
+
+reorder_cormat <- function(cormat){
+  # Use correlation between variables as distance
+  dd <- as.dist((1-cormat)/2)
+  hc <- hclust(dd)
+  cormat <-cormat[hc$order, hc$order]
+}
+
+# Reorder the correlation matrix
+cormat <- reorder_cormat(cormat)
+upper_tri <- get_upper_tri(cormat)
+# Melt the correlation matrix
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+# Create a ggheatmap
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ # minimal theme
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 8, hjust = 1))+
+  coord_fixed()
+# Print the heatmap
+print(ggheatmap)
+
+ggheatmap + 
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 1.5) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    legend.justification = c(1, 0),
+    legend.position = c(0.6, 0.7),
+    legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                               title.position = "top", title.hjust = 0.5))
+
+```
+
+
+##Circular Graph#####
+
+```{r}
+setwd("/Users/waseem/Desktop/Genetic_Microbiom/circos/A_R.file/RCircos")
+library(RCircos)
+library(readxl)
+#out.file <- "RCircosDemoHumanGenkome5.pdf"
+#pdf(file=out.file, height=13, width=13, compress=TRUE)
+#png(file=out.file, height=15, width=15, compress=TRUE)
+RCircos.Set.Plot.Area(margins = 0)
+
+f= read_excel("Circos_Input2.xlsx")
+chr.exclude= NULL
+cyto.info= f
+track.inside= 3
+track.outside= 0
+RCircos.Set.Core.Components(cyto.info, chr.exclude, track.inside, track.outside)
+rcircos.params <- RCircos.Get.Plot.Parameters()
+rcircos.params$char.width= 350
+rcircos.params$text.size= 0.39
+rcircos.params$text.color= "gray0"
+rcircos.params$plot.radius= 1.8
+rcircos.params$chrom.paddings= 550
+rcircos.params$track.out.start= 0
+RCircos.Reset.Plot.Parameters(rcircos.params)
+RCircos.Set.Plot.Area()
+t=RCircos.Get.Plot.Parameters()
+RCircos.Chromosome.Ideogram.Plot()
+
+g= read_excel("refGene122_only_on_1mb_window2.xlsx")
+g= as.data.frame(g)
+RCircos.Gene.Label.Data= g
+name.col= 4
+side= "in"
+track.num= 1
+
+RCircos.Gene.Connector.Plot(RCircos.Gene.Label.Data,track.num,side)
+track.num = 2
+RCircos.Gene.Name.Plot(RCircos.Gene.Label.Data,name.col,track.num, side)
+#dev.off()
+```
+
+
